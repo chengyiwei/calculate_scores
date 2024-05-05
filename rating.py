@@ -53,39 +53,23 @@ def get_stu_all_rating():
     return stu_dic
 
 
-# 获得学生历史比赛信息，如果没有则创建一个空表 
-# 返回列表[{contest_name: , rank: , new_rating:]
-def get_member_record(name):
-    # 获取当前文件夹路径
+# 获取比赛列表
+# 返回列表 [(year, id)]
+def get_contest_list():
+    # 获取当前文件所在的文件夹路径
     current_file_path = os.path.abspath(__file__)
     current_folder_path = os.path.dirname(current_file_path)
-    # 获取文件路径
-    path = current_folder_path + "\\files\\member_record\\" + name + ".xlsx"
-    try:
-        workbook = openpyxl.load_workbook(path)
-    except:
-        # 如果找不到这个人的记录表，则创建一个新的
-        workbook = openpyxl.Workbook()
-        sheet = workbook.active
-        sheet.title = name
-        sheet.cell(row=1, column=1).value = "contest_name"
-        sheet.cell(row=1, column=2).value = "rank"
-        sheet.cell(row=1, column=3).value = "new_rating"
-        workbook.save(path)
-        return []
-    
-    sheet = workbook.active
-    contest_number = int(re.findall(r'\d+', sheet.dimensions)[-1]) - 1 # 获取比赛数量
-    record_list = []
-    for i in range(2, contest_number + 2):
-        record = {}
-        record['contest_name'] = sheet.cell(row=i, column=1).value
-        record['rank'] = sheet.cell(row=i, column=2).value
-        record['new_rating'] = sheet.cell(row=i, column=3).value
-        record_list.append(record.copy())
-    
-    return record_list
-
+    directory = current_folder_path + "\\files\\contests"
+    contest_list = os.listdir(directory)
+    ret_list = []
+    for file_name in contest_list:
+        year = int(file_name.split('.')[0].split('#')[0])
+        id = int(file_name.split('.')[0].split('#')[1])
+        ret_list.append((year, id))
+    # 按照年份和 id 从大到小排序
+    ret_list.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return ret_list
+        
 
 # 获取比赛信息
 # 返回字典 {name: rank} 无序 如果找不到比赛则返回空字典
@@ -134,7 +118,36 @@ def get_contest_info(x):
     return stu_dic
 
 
+
+# 获取某个学生的比赛记录
+# 输入学生姓名 name
+# 返回列表 [{contest_name: , rank: , new_rating: }]
+def get_member_record(name):
+    current_file_path = os.path.abspath(__file__)
+    current_folder_path = os.path.dirname(current_file_path)
+    path = current_folder_path + "\\files\\member_record\\" + name + ".xlsx"
+    try:
+        workbook  = openpyxl.load_workbook(path)
+    except:
+        print("找不到名称为 " + str(name) + " 的比赛记录")
+        return []
+    sheet = workbook.active
+    contest_num = int(re.findall(r'\d+', sheet.dimensions)[-1]) - 1
+    if contest_num == 0:
+        print(str(name) + " 没有参加比赛")
+        return []
+    contest_list = []
+    for i in range(2, int(contest_num) + 2):
+        contest = {}
+        contest['contest_name'] = sheet.cell(row=i, column=1).value
+        contest['rank'] = sheet.cell(row=i, column=2).value
+        contest['new_rating'] = sheet.cell(row=i, column=3).value
+        contest_list.append(contest)
+    return contest_list
+
+
 # 计算第 x 场比赛的分数变化
+# 读入比赛名称 contest_name
 # 返回列表 [{name: ,rank:, old_rating:, delta:, new_rating}]
 def calc_rating_change(contest_name):
     RATEDBOUND = 4000
@@ -196,7 +209,6 @@ def calc_rating_change(contest_name):
         now_rating = int((2 * stu_list[i]['old_rating'] + Ri) / 3)
         stu_list[i]['delta'] = now_rating - stu_list[i]['old_rating']
     
-    
     # 第一次微调
     sum_delta = 0
     for i in range(stu_num):
@@ -227,32 +239,28 @@ def calc_rating_change(contest_name):
 
 
 # 获取学生比赛分数变化 
-def get_rating_change_info(x):
+# 输入比赛名称 contest_name
+# 返回字典 {name: {rank: , old_rating: , delta: , new_rating: }}
+def get_rating_change_info(contest_name):
     current_file_path = os.path.abspath(__file__)
     current_folder_path = os.path.dirname(current_file_path)
-    path = current_folder_path + "\\files\\rating_change\\" + str(x) + ".xlsx"
+    path = current_folder_path + "\\files\\rating_change\\" + str(contest_name) + ".xlsx"
     try:
         workbook  = openpyxl.load_workbook(path)
     except:
-        print("找不到名称为 " + str(x) + " 的比赛")
+        print("找不到名称为 " + str(contest_name) + " 的比赛")
         return {}
     sheet = workbook.active
     stu_num = int(re.findall(r'\d+', sheet.dimensions)[-1]) - 1
     stu_dic = {}
     for i in range(2, int(stu_num) + 2):
         cur_stu = {}
-        rank = sheet.cell(row=i, column=1).value
-        name = sheet.cell(row=i, column=2).value
-        score = sheet.cell(row=i, column=3).value
-        old_rating = sheet.cell(row=i, column=4).value
-        delta = sheet.cell(row=i, column=5).value
-        new_rating = sheet.cell(row=i, column=6).value
-        cur_stu['rank'] = rank
-        cur_stu['name'] = name
-        cur_stu['score'] = score
-        cur_stu['old_rating'] = old_rating
-        cur_stu['delta'] = delta
-        cur_stu['new_rating'] = new_rating
+        cur_stu['rank'] = sheet.cell(row=i, column=1).value
+        cur_stu['name'] = sheet.cell(row=i, column=2).value
+        cur_stu['old_rating'] = sheet.cell(row=i, column=3).value
+        cur_stu['delta'] = sheet.cell(row=i, column=4).value
+        cur_stu['new_rating'] = sheet.cell(row=i, column=5).value
+        name = cur_stu['name']
         stu_dic[name] = cur_stu.copy()
     return stu_dic
 
@@ -297,34 +305,54 @@ def update_contest(contest_name):
     save_rating_change(stu_list)
     print("日志已保存至 rating_change 文件夹的 " + str(contest_name) + ".xlsx")
 
-    
-    def save_member_record(stu_list): # 保存menber_record
-        for cur_stu in stu_list:
-            name = cur_stu['name']
-            record_list = get_member_record(name)
-            cur_contest = {'contest_name': contest_name, 'rank': cur_stu['rank'], 'new_rating': cur_stu['new_rating']}
-            contest_num = len(record_list)
-            # 获取当前文件所在的文件夹路径
-            current_file_path = os.path.abspath(__file__)
-            current_folder_path = os.path.dirname(current_file_path)
-            path = current_folder_path + "\\files\\member_record\\" + name + ".xlsx"
-            workbook = openpyxl.load_workbook(path)
-            sheet = workbook.active
-            sheet.cell(row = contest_num + 2, column = 1).value = cur_contest['contest_name']
-            sheet.cell(row = contest_num + 2, column = 2).value = cur_contest['rank']
-            sheet.cell(row = contest_num + 2, column = 3).value = cur_contest['new_rating']
-            workbook.save(path)
-
-    print("正在更新 member_record ...")
-    save_member_record(stu_list)
-    print("member_record 已更新至 member_record 文件夹")
-
     stu_all_rating = get_stu_all_rating()
     for stu in stu_list:
         stu_all_rating[stu['name']]['rating'] = stu['new_rating']
     
     save_scores_xlsx(stu_all_rating)
     print("rating 已更新至 rating.xlsx")
+
+
+# 创建所有学生的比赛记录
+# 无返回值，直接保存
+def create_all_stu_record():
+    stu_info = get_stu_info()
+    contest_list = get_contest_list()
+    
+    contest_record_list = []
+    for contest in contest_list:
+        contest_name = str(contest[0]) + "#" + str(contest[1])
+        contest_record = get_rating_change_info(contest_name)
+        contest_record_list.append({'name': contest_name, 'record': contest_record})
+
+    def save_stu_record(name):
+        stu_record = []
+        for contest in contest_record_list:
+            if name in contest['record']:
+                stu_record.append({'name': contest['name'], 'rank': contest['record'][name]['rank'] , 'new_rating': contest['record'][name]['new_rating']})
+            else:
+                pass
+        # 获取当前文件所在的文件夹路径
+        current_file_path = os.path.abspath(__file__)
+        current_folder_path = os.path.dirname(current_file_path)
+        path = current_folder_path + "\\files\\member_record\\" + name + ".xlsx"
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = name
+        sheet.cell(row=1, column=1).value = "比赛名称"
+        sheet.cell(row=1, column=2).value = "排名"
+        sheet.cell(row=1, column=3).value = "新 rating"
+        for i in range(2, len(stu_record) + 2):
+            sheet.cell(row=i, column=1).value = stu_record[i - 2]['name']
+            sheet.cell(row=i, column=2).value = stu_record[i - 2]['rank']
+            sheet.cell(row=i, column=3).value = stu_record[i - 2]['new_rating']
+        workbook.save(path)
+        
+    
+    for name in stu_info:
+        print("正在创建 " + name + " 的比赛记录 ... ")
+        save_stu_record(name)
+    
 
 
 # 保存学生分数列表, 无返回值
@@ -411,6 +439,7 @@ def update_at_rating():
     print("atcoder rating 已更新至 rating.xlsx")
 
 
+# 爬虫获取 cf 的 rating
 def get_cf_rating():
     print("正在爬取 codeforces rating ...")
     stu_info = get_stu_info()
@@ -453,6 +482,7 @@ def get_cf_rating():
     return stu_cf_rating
 
 
+# 更新 codeforces rating
 def update_cf_rating():
     print("正在更新 codeforces rating ...")
     stu_cf_rating = get_cf_rating()
@@ -486,6 +516,7 @@ def force_change_rating():
     print("focre 的数据已更新至 rating.xlsx")
 
 
+# 指令控制
 def command(s):
     if s == "reset" or s == "re":
         force_change_rating()
@@ -537,9 +568,11 @@ def command(s):
     return 0
 
 
+
 def contrl():
     s = input("请输入指令：")
     while command(s) == 0:
         s = input("请输入指令：")
 
-update_contest("2024#90")
+
+    print(i)
