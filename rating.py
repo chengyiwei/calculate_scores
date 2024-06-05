@@ -149,7 +149,7 @@ def get_member_record(name):
 # 计算第 x 场比赛的分数变化
 # 读入比赛名称 contest_name
 # 返回列表 [{name: ,rank:, old_rating:, delta:, new_rating}]
-def calc_rating_change(contest_name):
+def calc_rating_change(contest_name, is_rated=False):
     RATEDBOUND = 4000
 
     contest_info = get_contest_info(contest_name)
@@ -167,6 +167,12 @@ def calc_rating_change(contest_name):
         stu_list.append(cur_stu.copy())
     sorted(stu_list, key=lambda x: x['rank']) # 按照 rank 排序
     
+    if is_rated == False: # 非 rated 比赛
+        for i in range(stu_num):
+            stu_list[i]['delta'] = 0
+            stu_list[i]['new_rating'] = stu_list[i]['old_rating']
+        return stu_list
+
     perf = [[0 for i in range(stu_num)] for j in range(stu_num)]
     for i in range(stu_num):
         for j in range(stu_num):
@@ -268,7 +274,14 @@ def get_rating_change_info(contest_name):
 # 导入 contest_name 比赛，并产生日志
 def update_contest(contest_name):
     print("正在更新名为 " + str(contest_name) + " 的比赛 ...")
-    stu_list = calc_rating_change(contest_name)
+    
+    is_rated = input("是否为 rated 比赛？(y/n) ")
+    if is_rated == "y" or is_rated == "Y" or is_rated == "yes" or is_rated == "Yes" or is_rated == "YES":
+        is_rated = True
+    else:
+        is_rated = False
+    stu_list = calc_rating_change(contest_name, is_rated)
+
     if stu_list == []:
         print("找不到名为 " + str(contest_name) + " 的比赛")
         return
@@ -575,4 +588,80 @@ def contrl():
         s = input("请输入指令：")
 
 
-    print(i)
+def QQ_ask(s):
+    HELP = "/info 输出atcoder和codeforces的id\n/at 输出atcoder的rating\n/cf 输出codeforces的rating\n/rating 输出训练赛的rating\n/contest [contest_name] 输出rating变化值\n/stu [name] 输出某个人的比赛记录\n"
+    s = s[1:].strip()
+
+    # 单命令查询
+
+    if s == "help":
+        return HELP
+
+    if s == "info":
+        stu_info = get_stu_info()
+        res = ""
+        for x in stu_info:
+            res += f"{x} at_id: {stu_info[x]['at_id']} cf_id: {stu_info[x]['cf_id']}\n"
+        return res
+
+    if s == "at" or s == "AT":
+        res = ""
+        stu_all_rating = get_stu_all_rating()
+        stu_list = []
+        for x in stu_all_rating:
+            stu_list.append({'name': x, 'at_rating': stu_all_rating[x]['at_rating']})
+        stu_list.sort(key=lambda x: x['at_rating'], reverse=True)
+        for x in stu_list:
+            res += f"{x['name']} : {x['at_rating']}\n"
+        return res
+    
+    if s == "cf" or s == "CF":
+        res = ""
+        stu_all_rating = get_stu_all_rating()
+        stu_list = []
+        for x in stu_all_rating:
+            stu_list.append({'name': x, 'cf_rating': stu_all_rating[x]['cf_rating']})
+        stu_list.sort(key=lambda x: x['cf_rating'], reverse=True)
+        for x in stu_list:
+            res += f"{x['name']} : {x['cf_rating']}\n"
+        return res
+    
+    if s == "rating" or s == "Rating":
+        res = ""
+        stu_all_rating = get_stu_all_rating()
+        stu_list = []
+        for x in stu_all_rating:
+            stu_list.append({'name': x, 'rating': stu_all_rating[x]['rating']})
+        stu_list.sort(key=lambda x: x['rating'], reverse=True)
+        for x in stu_list:
+            res += f"{x['name']} : {x['rating']}\n"
+        return res
+    
+    # 多命令查询
+    list_s= s.split(" ")
+    if list_s[0] == "contest":
+        stu_rating_change = get_rating_change_info(list_s[1])
+        if stu_rating_change == {}:
+            return "没有找到该比赛"
+        res = ""
+        stu_list = []
+        for x in stu_rating_change:
+            stu_list.append({'name': x, 'rank': stu_rating_change[x]['rank'], 'delta': stu_rating_change[x]['delta']})
+        stu_list.sort(key=lambda x: x['rank'])
+        for x in stu_list:
+            res += f"{x['rank']} : {x['name']}   {x['delta']}\n"
+        return res
+
+    if list_s[0] == "stu":
+        stu_record = get_member_record(list_s[1])
+        if stu_record == []:
+            return "没有找到该学生的比赛记录"
+        res = ""
+        for x in stu_record:
+            res += f"{x['contest_name']} : rk {x['rank']} -> {x['new_rating']}\n"
+        return res
+
+    return "error"
+
+update_cf_rating()
+update_at_rating()
