@@ -663,5 +663,4 @@ def QQ_ask(s):
 
     return "error"
 
-update_cf_rating()
-update_at_rating()
+create_all_stu_record()
